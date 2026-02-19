@@ -15,7 +15,7 @@ phases:
       - COMMIT_ID=$(git rev-parse --short HEAD)
   build:
     commands:
-      - echo "Build Docker image..."
+      - echo "Build Docker image"
       - cd CodeBuild
       - docker build -t $ECR_REPO_NAME:$ECR_IMAGE_TAG .
       - docker tag $ECR_REPO_NAME:$ECR_IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPO_NAME:$ECR_IMAGE_TAG
