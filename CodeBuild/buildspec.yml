@@ -4,13 +4,13 @@ version: 0.2
 env:
   variables:
     AWS_DEFAULT_REGION: "eu-central-1"
-    AWS_ACCOUNT_ID    : "877031330925"
     ECR_REPO_NAME     : "webapp"
     ECR_IMAGE_TAG     : "latest"
 phases:
   pre_build:
     commands:
       - echo "Login to ECR"
+      - export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - COMMIT_ID=$(git rev-parse --short HEAD)
   build:
