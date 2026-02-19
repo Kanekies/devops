@@ -3,10 +3,10 @@ version: 0.2
 
 env:
   variables:
-  AWS_DEFAULT_REGION: "eu-central-1"
-  AWS_ACCOUNT_ID    : "877031330925"
-  ECR_REPO_NAME     : "webapp"
-  ECR_IMAGE_TAG     : "latest"
+    AWS_DEFAULT_REGION: "eu-central-1"
+    AWS_ACCOUNT_ID    : "877031330925"
+    ECR_REPO_NAME     : "webapp"
+    ECR_IMAGE_TAG     : "latest"
 phases:
   pre_build:
     commands:
@@ -23,8 +23,8 @@ phases:
   post_build:
     commands:
       - echo "Push to ECR"
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/ECR_REPO_NAME:$ECR_IMAGE_TAG
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/ECR_REPO_NAME:$COMMIT_ID
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPO_NAME:$ECR_IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPO_NAME:$COMMIT_ID
       - printf '[{"name":"nginx","imageUri":"%s"}]' $ECR_REPO_NAME:$ECR_IMAGE_TAG > imagedefinitions.json
 
 artifacts:
