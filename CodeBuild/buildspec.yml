@@ -4,22 +4,15 @@ version: 0.2
 env:
   variables:
     AWS_DEFAULT_REGION: "eu-central-1"
+    AWS_ACCOUNT_ID    : "877031330925"
     ECR_REPO_NAME     : "webapp"
     ECR_IMAGE_TAG     : "latest"
 phases:
   pre_build:
     commands:
-      - set -e
-      - echo "AWS CLI:"; aws --version
-      - echo "Docker:"; docker --version
-      - echo "Caller identity:"; aws sts get-caller-identity
-      - echo "Region=$AWS_DEFAULT_REGION  AccountVar=$AWS_ACCOUNT_ID"
-      - echo "Check ECR API доступность (describe-registry):"
-      - aws ecr describe-registry --region "$AWS_DEFAULT_REGION"
-
-      # Логин (без утечки пароля в лог)
-      - PASS=$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")
-      - echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - echo "Login to ECR"
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - COMMIT_ID=$(git rev-parse --short HEAD)
   build:
     commands:
       - echo "Build Docker image..."
