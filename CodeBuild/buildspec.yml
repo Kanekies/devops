@@ -8,11 +8,18 @@ env:
     ECR_IMAGE_TAG     : "latest"
 phases:
   pre_build:
-    commands:
-      - echo "Login to ECR"
-      - export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      - COMMIT_ID=$(git rev-parse --short HEAD)
+  commands:
+    - set -e
+    - echo "AWS CLI:"; aws --version
+    - echo "Docker:"; docker --version
+    - echo "Caller identity:"; aws sts get-caller-identity
+    - echo "Region=$AWS_DEFAULT_REGION  AccountVar=$AWS_ACCOUNT_ID"
+    - echo "Check ECR API доступность (describe-registry):"
+    - aws ecr describe-registry --region "$AWS_DEFAULT_REGION"
+
+    # Логин (без утечки пароля в лог)
+    - PASS=$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")
+    - echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
   build:
     commands:
       - echo "Build Docker image..."
