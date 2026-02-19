@@ -1,2 +1,2 @@
 FROM nginx:latest
-COPY ./CodeBuild/app /usr/share/nginx/html
+COPY ./CodeBuild/app/index.html /usr/share/nginx/html
