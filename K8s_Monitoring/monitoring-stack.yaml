@@ -14,8 +14,13 @@ spec:
       values: |
         grafana:
           adminPassword: admin
-        crds:
-          enabled: false
+
+        # чтобы не зависать на admission hooks/jobs
+        prometheusOperator:
+          admissionWebhooks:
+            enabled: false
+            patch:
+              enabled: false
 
         prometheus:
           prometheusSpec:
@@ -29,20 +34,28 @@ spec:
 
         alertmanager:
           config:
+            global:
+              resolve_timeout: 5m
             route:
-              receiver: "demo-webhook"
+              group_by: ['namespace','alertname']
+              group_wait: 10s
+              group_interval: 1m
+              repeat_interval: 1h
+              receiver: demo-webhook
+              routes:
+                - receiver: 'null'
+                  matchers:
+                    - alertname = "Watchdog"
             receivers:
-              - name: "demo-webhook"
+              - name: 'null'
+              - name: demo-webhook
                 webhook_configs:
                   - url: "http://demo-app.demo.svc.cluster.local/"
-                  - send_resolved: true
+                    send_resolved: true
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
