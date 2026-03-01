@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/Kanekies/devops.git
     targetRevision: main
-    path: demo
+    path: K8s_Monitoring/demo
   destination:
     server: https://kubernetes.default.svc
     namespace: demo
