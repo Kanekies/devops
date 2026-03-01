@@ -14,6 +14,8 @@ spec:
       values: |
         grafana:
           adminPassword: admin
+        crds:
+          enabled: false
 
         prometheus:
           prometheusSpec:
