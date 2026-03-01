@@ -6,10 +6,10 @@ metadata:
 spec:
   project: default
   source:
-    repourl: https://github.com/Kanekies/devops.git
-    tagretRevision: main
-    path: apps
-  dectination:
+    repoURL: https://github.com/Kanekies/devops.git
+    targetRevision: main
+    path: K8s_Monitoring
+  destination:
     server: https://kubernetes.default.svc
     namespace: argocd
   syncPolicy:
