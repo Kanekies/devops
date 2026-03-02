@@ -17,6 +17,8 @@ spec:
 
         # ВАЖНО: отключаем admission webhooks, чтобы не было hook/jobs и конфликтов RBAC
         prometheusOperator:
+          tls:
+            enabled: false
           admissionWebhooks:
             enabled: false
             patch:
