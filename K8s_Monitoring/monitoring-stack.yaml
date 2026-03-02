@@ -21,6 +21,8 @@ spec:
             enabled: false
             patch:
               enabled: false
+            certManager:
+              enabled: false
 
         # PVC для Prometheus (2Gi) — как в задании
         prometheus:
