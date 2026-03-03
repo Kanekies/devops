@@ -20,7 +20,7 @@ data:
           "title": "Node CPU usage (%)",
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
           "targets": [
-            { "expr": "100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode=\\\"idle\\\"}[5m])))", "refId": "A" }
+            { "expr": "100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "refId": "A" }
           ]
         },
         {
