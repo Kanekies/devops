@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-and-node-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: demo.rules
+      rules:
+        - alert: DemoAppHighRestartRate
+          expr: sum(increase(kube_pod_container_status_restarts_total{namespace="demo", pod=~"demo-app-.*"}[5m])) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Demo app is restarting"
+            description: "Demo app restart count increased in the last 5 minutes."
+
+        - alert: NodeHighCPU
+          expr: 100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 80
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High node CPU usage"
+            description: "Node CPU usage > 80% for 2 minutes."

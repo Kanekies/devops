@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-demoapp
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  demoapp-dashboard.json: |
+    {
+      "uid": "demoapp-min",
+      "title": "Demo App + Node (Minimal)",
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "10s",
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Node CPU usage (%)",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode=\\\"idle\\\"}[5m])))", "refId": "A" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Node Memory usage (%)",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))", "refId": "A" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Demo App CPU (cores)",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\\\"demo\\\", pod=~\\\"demo-app-.*\\\", container!=\\\"POD\\\", image!=\\\"\\\"}[5m])) by (pod)", "refId": "A" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Demo App restarts (increase 10m)",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\\\"demo\\\", pod=~\\\"demo-app-.*\\\"}[10m])) by (pod)", "refId": "A" }
+          ]
+        }
+      ]
+    }
