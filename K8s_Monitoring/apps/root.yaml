@@ -8,9 +8,7 @@ spec:
   source:
     repoURL: https://github.com/Kanekies/devops.git
     targetRevision: main
-    path: K8s_Monitoring
-    directory:
-      recurse: true
+    path: K8s_Monitoring/apps
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
