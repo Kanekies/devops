@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-test-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+    Release: monitoring
+spec:
+  groups:
+  - name: demo.test.rules
+    rules:
+    - alert: DemoAlwaysFiring
+      expr: vector(1)
+      for: 15s
+      labels:
+        severity: warning
+      annotations:
+        summary: "DemoAlwaysFiring (test)"
+        description: "Test alert to demonstrate FIRING -> Alertmanager -> receiver (webhook)."
