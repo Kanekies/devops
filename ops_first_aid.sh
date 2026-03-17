@@ -89,6 +89,11 @@ validate_args() {
         fi
     fi
 
+    if [[ -n "$MODE" && ( -n "$SIGNAL_NAME" || -n "$RENICE_VALUE" ) ]]; then
+        echo "Error: PID actions cannot be combined with main modes like --users, --proc, --find, --log, or --report."
+        exit 1
+    fi
+
     if [[ -n "$TARGET_PID" ]]; then
         if ! is_positive_integer "$TARGET_PID"; then
             echo "Error: PID must be a positive integer."
@@ -144,21 +149,12 @@ show_regular_users() {
 show_logged_in_users() {
     echo "=== Currently logged-in users ==="
 
-    if ! command_exists who; then
-        echo "Error: command 'who' is not available."
-        return 1
-    fi
-
     who
 
     echo
     echo "=== Detailed login activity (w) ==="
 
-    if command_exists w; then
         w
-    else
-        echo "Command 'w' is not available."
-    fi
 
     echo
 }
@@ -207,11 +203,6 @@ run_users_mode() {
 show_top_processes() {
     echo "=== Top running processes by CPU usage ==="
 
-    if ! command_exists ps; then
-        echo "Error: command 'ps' is not available."
-        return 1
-    fi
-
     ps -eo pid,ppid,user,stat,%cpu,%mem,comm --sort=-%cpu | head -n 11
     echo
 }
@@ -219,29 +210,51 @@ show_top_processes() {
 show_process_states() {
     echo "=== Processes in states R, S, D, T, Z ==="
 
-    if ! command_exists ps; then
-        echo "Error: command 'ps' is not available."
-        return 1
-    fi
+    local r=0
+    local s=0
+    local d=0
+    local t=0
+    local z=0
+    local pid
+    local user
+    local stat
+    local comm
+    local state
 
-    ps -eo pid,user,stat,comm --no-headers | awk '
-    {
-        state = substr($3, 1, 1)
-        if (state == "R"  state == "S"  state == "D"  state == "T"  state == "Z") {
-            print $0
-            counts[state]++
-        }
-    }
-    END {
-        print ""
-        print "=== State summary ==="
-        print "R (running): " 0 + counts["R"]
-        print "S (sleeping): " 0 + counts["S"]
-        print "D (uninterruptible sleep): " 0 + counts["D"]
-        print "T (stopped/traced): " 0 + counts["T"]
-        print "Z (zombie): " 0 + counts["Z"]
-    }'
+    while read -r pid user stat comm; do
+        state="${stat:0:1}"
 
+        case "$state" in
+            R)
+                echo "$pid $user $stat $comm"
+                ((++r))
+                ;;
+            S)
+                echo "$pid $user $stat $comm"
+                ((++s))
+                ;;
+            D)
+                echo "$pid $user $stat $comm"
+                ((++d))
+                ;;
+            T)
+                echo "$pid $user $stat $comm"
+                ((++t))
+                ;;
+            Z)
+                echo "$pid $user $stat $comm"
+                ((++z))
+                ;;
+        esac
+    done < <(ps -eo pid,user,stat,comm --no-headers)
+
+    echo
+    echo "=== State summary ==="
+    echo "R (running): $r"
+    echo "S (sleeping): $s"
+    echo "D (uninterruptible sleep): $d"
+    echo "T (stopped/traced): $t"
+    echo "Z (zombie): $z"
     echo
 }
 
@@ -253,11 +266,6 @@ show_pid_details() {
     local command_line
 
     echo "=== Details for PID: $pid ==="
-
-    if ! command_exists ps; then
-        echo "Error: command 'ps' is not available."
-        return 1
-    fi
 
     if ! ps -p "$pid" >/dev/null 2>&1; then
         echo "Error: PID '$pid' does not exist."
@@ -294,6 +302,354 @@ run_proc_mode() {
     if [[ -n "$TARGET_PID" ]]; then
         show_pid_details "$TARGET_PID"
     fi
+}
+
+show_find_results() {
+    echo "=== Search results ==="
+
+    if ! command_exists find; then
+        echo "Error: command 'find' is not available."
+        return 1
+    fi
+
+    if [[ ! -d "$FIND_DIR" ]]; then
+        echo "Error: directory '$FIND_DIR' does not exist."
+        return 1
+    fi
+
+    find "$FIND_DIR" -name "$FIND_PATTERN"
+    echo
+}
+
+show_found_object_types() {
+    echo "=== Types of found objects ==="
+
+    local found_any="false"
+    local found_path
+
+    while IFS= read -r found_path; do
+        found_any="true"
+        file "$found_path"
+    done < <(find "$FIND_DIR" -name "$FIND_PATTERN")
+
+    if [[ "$found_any" == "false" ]]; then
+        echo "No matching files or directories found."
+    fi
+
+    echo
+}
+
+show_directory_tree() {
+    echo "=== Directory tree (depth 2) ==="
+
+    if [[ ! -d "$FIND_DIR" ]]; then
+        echo "Error: directory '$FIND_DIR' does not exist."
+        return 1
+    fi
+
+    if command_exists tree; then
+        tree -L 2 "$FIND_DIR"
+    else
+        echo "Command 'tree' is not installed. Skipping directory tree view."
+    fi
+
+    echo
+}
+
+run_find_mode() {
+    show_find_results
+    show_found_object_types
+    show_directory_tree
+}
+
+show_log_line_count() {
+    echo "=== Log file line count ==="
+
+    if [[ ! -f "$LOG_FILE" ]]; then
+        echo "Error: log file '$LOG_FILE' does not exist."
+        return 1
+    fi
+
+    wc -l < "$LOG_FILE"
+    echo
+}
+
+show_log_tail() {
+    echo "=== Last 20 lines of log file ==="
+
+    if [[ ! -f "$LOG_FILE" ]]; then
+        echo "Error: log file '$LOG_FILE' does not exist."
+        return 1
+    fi
+
+    if ! command_exists tail; then
+        echo "Error: command 'tail' is not available."
+        return 1
+    fi
+
+    tail -n 20 "$LOG_FILE"
+    echo
+}
+
+follow_log_file() {
+    echo "=== Live log monitoring (tail -f) ==="
+    echo "Press Ctrl+C to stop."
+    echo
+
+    if [[ ! -f "$LOG_FILE" ]]; then
+        echo "Error: log file '$LOG_FILE' does not exist."
+        return 1
+    fi
+
+    tail -f "$LOG_FILE"
+}
+
+run_log_mode() {
+    show_log_line_count
+    show_log_tail
+
+    if [[ "$FOLLOW_MODE" == "true" ]]; then
+        follow_log_file
+    fi
+}
+
+require_root_for_process_action() {
+    if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+        echo "Error: this action requires root or sudo."
+        exit 1
+    fi
+}
+
+ensure_pid_exists() {
+    local pid="$1"
+
+    if ! ps -p "$pid" >/dev/null 2>&1; then
+        echo "Error: PID '$pid' does not exist."
+        return 1
+    fi
+}
+
+run_signal_action() {
+    local pid="$1"
+    local signal_name="$2"
+
+
+    if [[ "$pid" == "1" ]]; then
+        echo "Error: refusing to operate on PID 1."
+        return 1
+    fi
+
+    require_root_for_process_action
+    ensure_pid_exists "$pid"  return 1
+
+    echo "About to send signal '$signal_name' to PID $pid."
+
+    if ! kill -s "$signal_name" "$pid"; then
+        echo "Error: failed to send signal '$signal_name' to PID $pid."
+        return 1
+    fi
+
+    echo "Success: signal '$signal_name' was sent to PID $pid."
+    echo
+}
+
+run_renice_action() {
+    local pid="$1"
+    local priority="$2"
+
+    if ! command_exists renice; then
+        echo "Error: command 'renice' is not available."
+        return 1
+    fi
+
+    if [[ "$pid" == "1" ]]; then
+        echo "Error: refusing to operate on PID 1."
+        return 1
+    fi
+
+    require_root_for_process_action
+    ensure_pid_exists "$pid"  return 1
+
+    echo "About to change priority of PID $pid to $priority."
+
+    if ! renice -n "$priority" -p "$pid"; then
+        echo "Error: failed to change priority of PID $pid."
+        return 1
+    fi
+
+    echo "Success: priority of PID $pid was changed to $priority."
+    echo
+}
+
+run_pid_action_mode() {
+    if [[ -n "$SIGNAL_NAME" ]]; then
+        run_signal_action "$TARGET_PID" "$SIGNAL_NAME"
+        return
+    fi
+
+    if [[ -n "$RENICE_VALUE" ]]; then
+        run_renice_action "$TARGET_PID" "$RENICE_VALUE"
+        return
+    fi
+
+    echo "Error: no PID action specified."
+    return 1
+}
+
+get_root_status_text() {
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            echo "Yes (via sudo, original user: $SUDO_USER)"
+        else
+            echo "Yes (running as root)"
+        fi
+    else
+        echo "No"
+    fi
+}
+
+get_cpu_report_block() {
+    echo "=== CPU information from /proc ==="
+
+    if [[ ! -f /proc/cpuinfo ]]; then
+        echo "Error: /proc/cpuinfo not found."
+        echo
+        return 1
+    fi
+
+    echo "CPU model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
+    echo "CPU cores (logical): $(grep -c '^processor' /proc/cpuinfo)"
+    echo
+}
+
+get_memory_report_block() {
+    echo "=== Memory information from /proc ==="
+
+    if [[ ! -f /proc/meminfo ]]; then
+        echo "Error: /proc/meminfo not found."
+        echo
+        return 1
+    fi
+
+    grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo
+    echo
+}
+
+get_process_anomaly_block() {
+    echo "=== Zombie or stopped processes ==="
+
+    local found_any="false"
+    local pid
+    local user
+    local stat
+    local comm
+    local state
+
+    while read -r pid user stat comm; do
+        state="${stat:0:1}"
+
+        case "$state" in
+            Z|T)
+                echo "$pid $user $stat $comm"
+                found_any="true"
+                ;;
+        esac
+    done < <(ps -eo pid,user,stat,comm --no-headers)
+
+    if [[ "$found_any" == "false" ]]; then
+        echo "No zombie or stopped processes found."
+    fi
+
+    echo
+}
+
+calculate_final_status() {
+    local root_disk_used
+    local mem_available_mb
+    local zombie_count
+    local stopped_count
+
+    root_disk_used="$(df -P / | awk 'NR==2 {gsub("%", "", $5); print $5}')"
+    mem_available_mb="$(awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)"
+    zombie_count="$(ps -eo stat= | grep -c '^Z' || true)"
+    stopped_count="$(ps -eo stat= | grep -c '^T' || true)"
+
+    if [[ -z "$root_disk_used" ]]; then
+        root_disk_used=0
+    fi
+
+    if [[ -z "$mem_available_mb" ]]; then
+        mem_available_mb=0
+    fi
+
+    if [[ "$root_disk_used" -ge 95 || "$mem_available_mb" -lt 200 ]]; then
+        echo "CRITICAL"
+        return
+    fi
+
+    if [[ "$root_disk_used" -ge 85  || "$mem_available_mb" -lt 500 || "$zombie_count" -gt 0 || "$stopped_count" -gt 0 ]]; then
+        echo "WARNING"
+        return
+    fi
+
+    echo "OK"
+}
+
+generate_report_content() {
+    echo "Ops First Aid Report"
+    echo "===================="
+    echo
+
+    echo "=== Basic system information ==="
+    echo "Current user: $(whoami)"
+    echo "Running as root / via sudo: $(get_root_status_text)"
+    echo "Hostname: $(hostname)"
+    echo "Current date and time: $(date)"
+    echo "Uptime: $(uptime)"
+    echo
+
+    get_cpu_report_block
+    get_memory_report_block
+
+    echo "=== Mounted file systems and disk usage ==="
+        df -h
+    echo
+
+    echo "=== Currently logged-in users ==="
+        who
+    echo
+
+    echo "=== Top 5 processes by CPU usage ==="
+        ps -eo pid,ppid,user,stat,%cpu,%mem,comm --sort=-%cpu | head -n 6
+    echo
+
+    echo "=== Top 5 processes by memory usage ==="
+        ps -eo pid,ppid,user,stat,%cpu,%mem,comm --sort=-%mem | head -n 6
+    echo
+
+    get_process_anomaly_block
+    echo "=== Final status summary ==="
+    echo "Threshold rules used by this script:"
+    echo "- CRITICAL: root filesystem >= 95% OR MemAvailable < 200 MB"
+    echo "- WARNING: root filesystem >= 85% OR MemAvailable < 500 MB OR zombie/stopped processes exist"
+    echo "- OK: none of the above"
+    echo
+    echo "Status: $(calculate_final_status)"
+    echo
+}
+
+run_report_mode() {
+    local timestamp
+    local report_file
+
+    timestamp="$(date '+%Y-%m-%d_%H-%M-%S')"
+    report_file="$REPORT_DIR/report_$timestamp.txt"
+
+    mkdir -p "$REPORT_DIR"
+
+    generate_report_content | tee "$report_file"
+
+    echo "Report saved to: $report_file"
 }
 
 MODE=""
@@ -399,9 +755,21 @@ case "$MODE" in
     users)
         run_users_mode
         ;;
+    proc)
+        run_proc_mode
+        ;;
+    find)
+        run_find_mode
+        ;;
+    log)
+        run_log_mode
+        ;;
+    report)
+        run_report_mode
+        ;;
     "")
         if [[ -n "$TARGET_PID" ]]; then
-            echo "PID action mode is not implemented yet."
+            run_pid_action_mode
         else
             echo "No mode selected."
         fi
