@@ -775,6 +775,6 @@ case "$MODE" in
         fi
         ;;
     *)
-        echo "Mode '$MODE' is not implemented yet."
+        echo "Mode '$MODE' is not implemented yet. "
         ;;
 esac
